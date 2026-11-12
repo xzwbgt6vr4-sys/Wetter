@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wetterstation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f2f2f7;--card:rgba(255,255,255,.85);--solid:#fff;--text:#1d1d1f;--sub:#6e6e73;--line:rgba(60,60,67,.14);--blue:#0a84ff;--red:#ff453a;--glass:rgba(242,242,247,.72);--seg:rgba(118,118,128,.12);--sh:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.05)}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--card:rgba(28,28,30,.85);--solid:#1c1c1e;--text:#f5f5f7;--sub:#98989f;--line:rgba(84,84,88,.5);--glass:rgba(0,0,0,.7);--seg:rgba(118,118,128,.24);--sh:none}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{font:100%/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+body{margin:0;padding-bottom:4rem}
+button,input,select{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:10;background:var(--glass);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid var(--line);padding:.75rem 1rem}
+.bar{max-width:64rem;margin:0 auto;display:flex;align-items:center;gap:.75rem}
+.bar select{flex:1;min-width:0;font-size:1.25rem;font-weight:700;letter-spacing:-.02em;background:none;border:0;appearance:none;-webkit-appearance:none;padding:.25rem 0;cursor:pointer}
+.icon{width:2.5rem;height:2.5rem;border-radius:50%;border:0;background:var(--seg);cursor:pointer;display:grid;place-items:center;transition:transform .1s ease-out}
+.icon:active,.btn:active,.seg button:active{transform:scale(.96)}
+.seg{max-width:64rem;margin:.75rem auto 0;display:flex;background:var(--seg);border-radius:.6rem;padding:2px;position:relative}
+.seg button{flex:1;border:0;background:none;padding:.35rem;border-radius:.5rem;font-size:.9rem;font-weight:500;cursor:pointer;position:relative;z-index:1;transition:transform .1s}
+.seg .pill{position:absolute;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);background:var(--solid);border-radius:.5rem;box-shadow:0 1px 3px rgba(0,0,0,.15);transition:transform .35s cubic-bezier(.32,.72,0,1)}
+.seg[data-t="1"] .pill{transform:translateX(100%)}
+main{max-width:64rem;margin:0 auto;padding:1rem}
+.view{display:none}.view.on{display:block;animation:in .35s cubic-bezier(.32,.72,0,1)}
+@keyframes in{from{opacity:0;transform:translateY(8px)}}
+.meta{color:var(--sub);font-size:.85rem;margin:0 0 1rem}
+.hero{background:var(--card);border-radius:1.25rem;box-shadow:var(--sh);padding:1.5rem;display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem}
+.hero b{font-size:clamp(3.5rem,14vw,5.5rem);font-weight:300;line-height:1;letter-spacing:-.04em}
+.hero span{color:var(--sub)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(10.5rem,1fr));gap:.75rem}
+.tile{background:var(--card);border-radius:1.25rem;box-shadow:var(--sh);padding:1rem}
+.tile small{display:block;color:var(--sub);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.tile b{display:block;font-size:1.75rem;font-weight:600;letter-spacing:-.02em;margin:.25rem 0 .1rem}
+.tile span{color:var(--sub);font-size:.85rem}
+.panel{background:var(--card);border-radius:1.25rem;box-shadow:var(--sh);padding:1rem;margin-bottom:.75rem}
+.row{display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end}
+label{display:grid;gap:.25rem;font-size:.75rem;color:var(--sub);font-weight:600}
+input[type=text],input[type=date],input[type=password]{background:var(--seg);border:1px solid transparent;border-radius:.6rem;padding:.55rem .7rem;font-size:1rem;color:var(--text);min-width:0;width:100%}
+input:focus{outline:2px solid var(--blue);outline-offset:1px}
+.btn{border:0;border-radius:.75rem;padding:.6rem 1rem;font-weight:600;cursor:pointer;background:var(--seg);transition:transform .1s ease-out}
+.btn.p{background:var(--blue);color:#fff}.btn.d{color:var(--red)}.btn:disabled{opacity:.4;pointer-events:none}
+.tools{display:flex;gap:.5rem;flex-wrap:wrap;margin:.75rem 0}
+.tw{overflow-x:auto;background:var(--card);border-radius:1.25rem;box-shadow:var(--sh)}
+table{border-collapse:collapse;width:100%;font-size:.85rem;font-variant-numeric:tabular-nums}
+th,td{padding:.55rem .75rem;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--sub);position:sticky;top:0}
+tr:last-child td{border:0}
+.empty{padding:2rem;text-align:center;color:var(--sub)}
+.msg{border-radius:.9rem;padding:.8rem 1rem;margin-bottom:.75rem;background:rgba(255,69,58,.12);color:var(--red);font-size:.9rem}
+.prog{height:4px;border-radius:2px;background:var(--seg);overflow:hidden;margin-top:.75rem;display:none}
+.prog i{display:block;height:100%;width:0;background:var(--blue);transition:width .2s}
+/* Einstellungen */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .3s;z-index:20}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;max-width:36rem;margin:0 auto;max-height:90vh;overflow:auto;background:var(--bg);border-radius:1.5rem 1.5rem 0 0;padding:1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .45s cubic-bezier(.32,.72,0,1)}
+body.set .scrim{opacity:1;pointer-events:auto}body.set .sheet{transform:none}
+.sheet h2{margin:0 0 1rem;font-size:1.4rem;letter-spacing:-.02em;display:flex;justify-content:space-between;align-items:center}
+.loc{display:flex;align-items:center;gap:.5rem;background:var(--solid);border-radius:.9rem;padding:.6rem .8rem;margin-bottom:.4rem}
+.loc div{flex:1;min-width:0}.loc small{color:var(--sub);display:block}
+.loc button{border:0;background:none;color:var(--red);cursor:pointer;font-weight:600;padding:.25rem .5rem}
+.stack{display:grid;gap:.75rem;margin-bottom:1rem}
+h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--sub);margin:1.25rem 0 .5rem}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:opacity .2s!important}.sheet{transform:none;opacity:0;pointer-events:none}body.set .sheet{opacity:1;pointer-events:auto}}
+@media(prefers-reduced-transparency:reduce){header{backdrop-filter:none;background:var(--bg)}}
+/* iOS-Wetter-Stil */
+:root{color-scheme:dark;--bg:#1c1c1e;--card:rgba(255,255,255,.16);--solid:rgba(255,255,255,.14);--text:#fff;--sub:rgba(255,255,255,.72);--line:rgba(255,255,255,.18);--glass:rgba(0,0,0,.16);--seg:rgba(255,255,255,.18);--sh:none;
+--g-sonnig:linear-gradient(180deg,#2d7fd6,#5db1f2 55%,#a5d8f8);--g-daemmerung:linear-gradient(180deg,#2a2d68,#8b4f90 55%,#f29c6b);--g-nacht:linear-gradient(180deg,#070d24,#1b2a5a);--g-bewoelkt:linear-gradient(180deg,#59656f,#8693a0 55%,#b2bcc6);--g-regen:linear-gradient(180deg,#232d3a,#43536a 60%,#5d6f84)}
+#bg{position:fixed;inset:0;z-index:-1;animation:bgin .9s ease}
+#bg::after{content:"";position:absolute;inset:0;pointer-events:none}
+@keyframes bgin{from{opacity:0}}
+body[data-fx=regen] #bg::after{background:repeating-linear-gradient(105deg,transparent 0 16px,rgba(255,255,255,.2) 16px 17px);background-size:100% 100%;animation:rain .7s linear infinite}
+@keyframes rain{to{background-position:-70px 140px}}
+body[data-fx=nacht] #bg::after{background:radial-gradient(1.5px 1.5px at 20% 15%,#fff,transparent),radial-gradient(1px 1px at 70% 25%,#fff,transparent),radial-gradient(1.5px 1.5px at 40% 55%,#fff,transparent),radial-gradient(1px 1px at 85% 68%,#fff,transparent),radial-gradient(1px 1px at 10% 80%,#fff,transparent),radial-gradient(1px 1px at 55% 90%,#fff,transparent);animation:tw 4s ease-in-out infinite alternate}
+@keyframes tw{from{opacity:.35}to{opacity:1}}
+body[data-fx=bewoelkt] #bg::after,body[data-fx=sonnig] #bg::after{background:radial-gradient(30% 9% at 25% 18%,rgba(255,255,255,.4),transparent),radial-gradient(28% 8% at 70% 38%,rgba(255,255,255,.32),transparent),radial-gradient(34% 9% at 40% 70%,rgba(255,255,255,.26),transparent);background-size:200% 100%;animation:drift 70s ease-in-out infinite alternate}
+body[data-fx=sonnig] #bg::after{opacity:.5}
+@keyframes drift{to{background-position:100% 0}}
+header{background:var(--glass)}
+.seg .pill{background:rgba(255,255,255,.32);box-shadow:none}
+option{color:#000}
+.sheet{background:rgba(36,40,58,.8);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%)}
+.tile,.panel,.tw{backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1)}
+#meta{text-align:center;font-size:1.2rem;font-weight:500;color:var(--text);margin:.5rem 0 0}
+.hero{background:none;border:0;backdrop-filter:none;flex-direction:column;align-items:center;justify-content:center;padding:.25rem 0 1.5rem;gap:.25rem;text-shadow:0 1px 8px rgba(0,0,0,.12)}
+.hero b{font-size:clamp(5rem,24vw,8rem);font-weight:200;letter-spacing:-.05em;padding-left:.15em}
+.hero span{font-size:1.1rem}
+.group{background:var(--solid);border-radius:.9rem;overflow:hidden}
+label.opt{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.6rem .9rem;font-size:1rem;font-weight:400;color:var(--text);border-bottom:1px solid var(--line)}
+label.opt:last-child{border:0}
+.sw2{appearance:none;-webkit-appearance:none;flex:none;width:3rem;height:1.85rem;border-radius:1rem;background:rgba(120,120,128,.45);position:relative;cursor:pointer;transition:background .25s;border:0;padding:0}
+.sw2::after{content:"";position:absolute;top:2px;left:2px;width:1.55rem;height:1.55rem;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.3);transition:transform .35s cubic-bezier(.32,.72,0,1)}
+.sw2:checked{background:#30d158}.sw2:checked::after{transform:translateX(1.15rem)}
+.swrow{display:flex;gap:.6rem;flex-wrap:wrap}
+.chip{width:4.3rem;height:5.2rem;border-radius:1rem;border:2px solid transparent;color:#fff;font-size:.7rem;font-weight:600;display:flex;align-items:flex-end;justify-content:center;padding:.4rem;cursor:pointer;text-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .1s}
+.chip:active{transform:scale(.96)}.chip.on{border-color:#fff;box-shadow:0 0 0 2px var(--blue)}
+/* Diagramme */
+[data-c]{cursor:pointer}
+.tile.on{background:rgba(255,255,255,.28);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.7)}
+.hero.on::after{content:"";width:2rem;height:3px;border-radius:2px;background:#fff;opacity:.7;margin-top:.4rem}
+.hint{text-align:center;color:var(--sub);font-size:.8rem;margin:.75rem 0 0}
+.cg{margin-top:.75rem;grid-template-columns:repeat(auto-fill,minmax(18rem,1fr))}
+.ch svg{width:100%;height:auto;display:block;touch-action:pan-y;margin-top:.5rem}
+.ch .ax{display:flex;justify-content:space-between;color:var(--sub);font-size:.7rem}
+#cchips{display:flex;gap:.5rem;flex-wrap:wrap;margin:.5rem 0 .75rem}
+.chip2{border:0;border-radius:2rem;padding:.35rem .8rem;font-size:.85rem;font-weight:500;background:var(--seg);cursor:pointer;color:var(--text)}
+.chip2.on{background:rgba(255,255,255,.9);color:#1c1c1e}
+.cmb{grid-column:1/-1}
+.lg{display:flex;flex-wrap:wrap;gap:.4rem 1.1rem;font-size:.85rem;margin-bottom:.25rem}
+.li{display:flex;align-items:center;gap:.4rem}
+.li i{width:.7rem;height:.7rem;border-radius:50%;flex:none}
+.li em{font-style:normal;font-weight:600}
+/* Druck */
+#pt{display:none}
+@media print{body>*:not(main),main>*:not(#v1),#v1>*:not(.tw):not(#pt):not(#achs){display:none!important}
+html,body{background:#fff}main{padding:0;max-width:none}#pt{display:block;color:#000;margin:0 0 .5rem}.tw{box-shadow:none;background:none;border-radius:0}table{font-size:8pt;color:#000}th,td{padding:.2rem .35rem}@page{size:A4 landscape;margin:12mm}th{color:#444!important}td,th{border-color:#ccc}.tw{border:0;backdrop-filter:none}
+#achs{grid-template-columns:repeat(2,1fr);gap:.5rem;margin-top:.75rem}
+.tile.ch{background:none;border:1px solid #ccc;box-shadow:none;backdrop-filter:none;color:#000;break-inside:avoid;padding:.5rem}
+.ch small,.ch .ax,.ch b span{color:#444!important}.ch b{font-size:1.1rem;color:#000}.ch .cv{color:#000!important}
+.ch:not(.cmb) path[stroke]{stroke:#0a60c8}.ch path[fill^="url"]{fill:rgba(10,96,200,.15)}.ch text{fill:#444}.ch .cur{display:none}}
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<header>
+  <div class="bar">
+    <select id="sel" aria-label="Standort"></select>
+    <button class="icon" id="gear" aria-label="Einstellungen"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </div>
+  <div class="seg" id="seg" data-t="0"><div class="pill"></div><button data-t="0">Aktuell</button><button data-t="1">Archiv</button></div>
+</header>
+
+<main>
+  <div id="err"></div>
+  <section class="view on" id="v0">
+    <p class="meta" id="meta"></p>
+    <div id="cur"></div>
+  </section>
+
+  <section class="view" id="v1">
+    <div class="panel">
+      <div class="row">
+        <label style="flex:1;min-width:9rem">Von<input type="date" id="from"></label>
+        <label style="flex:1;min-width:9rem">Bis<input type="date" id="to"></label>
+        <button class="btn p" id="load">Daten laden</button>
+      </div>
+      <div class="prog" id="prog"><i></i></div>
+    </div>
+    <div class="tools">
+      <button class="btn" id="pdf">PDF</button>
+      <button class="btn" id="xls">Excel</button>
+      <button class="btn" id="prt">Drucken</button>
+    </div>
+    <div id="cchips"></div>
+    <h2 id="pt"></h2>
+    <div class="tw"><div id="tbl"></div></div>
+    <div id="achs" class="grid cg"></div>
+  </section>
+</main>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-label="Einstellungen">
+  <h2>Einstellungen <button class="btn p" id="done">Fertig</button></h2>
+  <h3>Wunderground API-Key</h3>
+  <div class="stack"><div style="display:flex;gap:.5rem"><input type="password" id="key" placeholder="API-Key" autocomplete="off"><button class="btn" id="eye" type="button">Anzeigen</button></div></div>
+  <h3>Standorte</h3>
+  <div id="locs"></div>
+  <div class="panel" style="margin-top:.75rem">
+    <div class="stack" style="margin:0 0 .75rem">
+      <label>Name<input type="text" id="nn" placeholder="z. B. Büro"></label>
+      <label>Stations-ID<input type="text" id="ni" placeholder="z. B. IMUENC123" autocapitalize="characters" autocomplete="off"></label>
+    </div>
+    <button class="btn p" id="add">Standort hinzufügen</button>
+  </div>
+  <h3>Fronius PV-Anlage (lokal)</h3>
+  <div class="stack" style="margin-bottom:.25rem"><input type="text" id="fip" placeholder="IP-Adresse, z. B. 192.168.1.50" autocomplete="off" autocapitalize="off"></div>
+  <p class="meta" style="margin:0">Leer lassen, wenn keine PV-Anlage angezeigt werden soll.</p>
+  <h3>Hintergrund</h3><div class="swrow" id="bgs"></div>
+  <h3>Angezeigte Werte (Aktuell)</h3><div id="tcur"></div>
+  <h3>Spalten (Archiv, PDF, Excel, Druck)</h3><div id="tcol"></div>
+  <h3>Diagramme</h3><div id="tcombo"></div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const API='https://api.weather.com/v2/pws/';
+let S={apiKey:'',stations:[],active:null,hideCur:[],hideCols:[],bg:'auto',charts:[],combo:false,fronius:''};
+try{S=Object.assign(S,JSON.parse(localStorage.getItem('wx.v1')))}catch(e){}
+const save=()=>{try{localStorage.setItem('wx.v1',JSON.stringify(S))}catch(e){}};
+const getA=id=>{try{return JSON.parse(localStorage.getItem('wx.a.'+id))||{}}catch(e){return{}}};
+const setA=(id,a)=>{try{localStorage.setItem('wx.a.'+id,JSON.stringify(a))}catch(e){}};
+const st=()=>S.stations.find(s=>s.id===S.active);
+const iso=d=>d.toISOString().slice(0,10);
+const de=s=>s.split('-').reverse().join('.');
+const n=(v,d=1)=>v==null||isNaN(v)?'–':Number(v).toFixed(d).replace('.',',');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const DIR=['N','NNO','NO','ONO','O','OSO','SO','SSO','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const dir=d=>d==null?'':DIR[Math.round(d/22.5)%16];
+
+async function call(path,id,extra,all){
+  const q=new URLSearchParams({stationId:id,format:'json',units:'m',numericPrecision:'decimal',apiKey:S.apiKey,...extra});
+  const r=await fetch(API+path+'?'+q);
+  if(r.status===401||r.status===403)throw new Error('API-Key ungültig oder nicht berechtigt.');
+  if(r.status===204||r.status===404)return null;
+  if(!r.ok)throw new Error('Abruf fehlgeschlagen ('+r.status+').');
+  const j=await r.json();return all?(j.observations||[]):(j.observations&&j.observations[0]||null);
+}
+const showErr=m=>{$('#err').innerHTML=m?'<div class="msg">'+esc(m)+'</div>':''};
+
+/* ---------- Aktuell ---------- */
+async function loadCur(){
+  const s=st();showErr('');
+  if(!s||!S.apiKey){$('#meta').textContent='';$('#cur').innerHTML='<div class="empty">Bitte API-Key und Standort in den Einstellungen eintragen.</div>';return}
+  $('#meta').textContent='Lade …';
+  try{
+    const o=await call('observations/current',s.id);
+    if(!o){$('#cur').innerHTML='<div class="empty">Keine aktuellen Daten für diese Station.</div>';$('#meta').textContent='';return}
+    const m=o.metric||{};
+    autoBg=pickAuto(o,m);applyBg();
+    const t=(l,v,u,sub)=>S.hideCur.includes(l)?'':`<div class="tile${S.charts.includes(l)?' on':''}"${CH_DEF[l]?' data-c="'+l+'"':''}><small>${l}</small><b>${v}${u?'<span style="font-size:1rem;font-weight:500;color:var(--sub)"> '+u+'</span>':''}</b><span>${sub||'&nbsp;'}</span></div>`;
+    $('#meta').textContent=[o.neighborhood||s.name,o.obsTimeLocal&&'Stand '+o.obsTimeLocal.slice(11,16)+' Uhr'].filter(Boolean).join(' · ');
+    $('#cur').innerHTML=`<div class="hero${S.charts.includes('Temperatur')?' on':''}" data-c="Temperatur"><b>${n(m.temp)}°</b><span>${[S.hideCur.includes('Taupunkt')?'':'Taupunkt '+n(m.dewpt)+'°',S.hideCur.includes('Gefühlt')?'':'gefühlt '+n(m.temp<=10?m.windChill:m.heatIndex)+'°'].filter(Boolean).join(' · ')}</span></div><div class="grid">`+
+      t('Luftfeuchte',n(o.humidity,0),'%')+
+      t('Wind',n(m.windSpeed),'km/h',dir(o.winddir)+' ('+n(o.winddir,0)+'°)')+
+      t('Böen',n(m.windGust),'km/h')+
+      t('Luftdruck',n(m.pressure),'hPa')+
+      t('Regenrate',n(m.precipRate,2),'mm/h')+
+      t('Niederschlag heute',n(m.precipTotal,1),'mm')+
+      t('UV-Index',n(o.uv,0),'')+
+      t('Solarstrahlung',n(o.solarRadiation,0),'W/m²')+
+      (m.elev!=null?t('Höhe',n(m.elev,0),'m'):'')+'</div><div id="pv"></div><p class="hint">Tippe auf einen Wert, um den Tagesverlauf ein- oder auszublenden.</p><div id="chs" class="grid cg"></div>';loadHourly();loadPV();
+  }catch(e){$('#meta').textContent='';$('#cur').innerHTML='';showErr(e.message)}
+}
+
+/* ---------- Archiv ---------- */
+const COLS=[['Datum'],['T max °C',1],['T min °C',1],['T Ø °C',1],['Feuchte Ø %',0],['Wind Ø km/h',1],['Böen max km/h',1],['Druck max hPa',1],['Druck min hPa',1],['Regen mm',1],['UV max',0]];
+function rowOf(d,o){const m=o.metric||{};return[de(d),m.tempHigh,m.tempLow,m.tempAvg,o.humidityAvg,m.windspeedAvg,m.windgustHigh,m.pressureMax,m.pressureMin,m.precipTotal,o.uvHigh]}
+function days(){const a=[];let d=new Date($('#from').value+'T00:00:00Z');const e=new Date($('#to').value+'T00:00:00Z');if(isNaN(d)||isNaN(e))return a;while(d<=e&&a.length<366){a.push(iso(d));d=new Date(d.getTime()+864e5)}return a}
+function rows(){const s=st();if(!s)return[];const c=getA(s.id);return days().filter(d=>c[d]).map(d=>rowOf(d,c[d]))}
+function renderTbl(){
+  const r=rows(),s=st();
+  $('#pt').textContent=s?`Wetterdaten ${s.name} (${s.id}) · ${de($('#from').value)} – ${de($('#to').value)}`:'';
+  ['pdf','xls','prt'].forEach(i=>$('#'+i).disabled=!r.length);
+  $('#tbl').innerHTML=r.length?'<table><thead><tr>'+vis().map(i=>'<th>'+COLS[i][0]+'</th>').join('')+'</tr></thead><tbody>'+
+    r.map(x=>'<tr>'+vis().map(i=>'<td>'+(i?n(x[i],COLS[i][1]):x[i])+'</td>').join('')+'</tr>').join('')+'</tbody></table>'
+    :'<div class="empty">Keine Daten im Archiv für diesen Zeitraum. Mit „Daten laden“ abrufen.</div>';renderACharts();
+}
+async function loadArch(){
+  const s=st();showErr('');
+  if(!s||!S.apiKey){showErr('Bitte zuerst API-Key und Standort eintragen.');return}
+  const ds=days();if(!ds.length){showErr('Bitte einen gültigen Zeitraum wählen.');return}
+  const today=iso(new Date()),c=getA(s.id),todo=ds.filter(d=>!c[d]||d>=today);
+  const p=$('#prog');p.style.display='block';$('#load').disabled=true;let k=0;
+  try{
+    for(const d of todo){
+      const o=await call('history/daily',s.id,{date:d.replace(/-/g,'')});
+      if(o)c[d]=o;else delete c[d];
+      $('#prog i').style.width=(++k/todo.length*100)+'%';
+      if(k%5===0)renderTbl();
+    }
+  }catch(e){showErr(e.message)}
+  setA(s.id,c);p.style.display='none';$('#load').disabled=false;renderTbl();
+}
+const fname=ext=>`wetter_${st().id}_${$('#from').value}_${$('#to').value}.${ext}`;
+$('#pdf').onclick=()=>{
+  const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  doc.setFontSize(14);doc.text($('#pt').textContent,14,14);
+  doc.autoTable({startY:20,head:[vis().map(i=>COLS[i][0])],body:rows().map(r=>vis().map(i=>i?n(r[i],COLS[i][1]):r[i])),styles:{fontSize:8,halign:'right'},columnStyles:{0:{halign:'left'}},headStyles:{fillColor:[10,132,255]}});
+  doc.save(fname('pdf'));
+};
+$('#xls').onclick=()=>{
+  const ws=XLSX.utils.aoa_to_sheet([vis().map(i=>COLS[i][0]),...rows().map(r=>vis().map(i=>r[i]))]);
+  ws['!cols']=COLS.map((c,i)=>({wch:i?14:12}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Wetterdaten');
+  XLSX.writeFile(wb,fname('xlsx'));
+};
+$('#prt').onclick=()=>window.print();
+
+/* ---------- Einstellungen ---------- */
+function renderSel(){
+  $('#sel').innerHTML=S.stations.length?S.stations.map(s=>`<option value="${esc(s.id)}"${s.id===S.active?' selected':''}>${esc(s.name)}</option>`).join(''):'<option>Kein Standort</option>';
+  $('#locs').innerHTML=S.stations.map(s=>`<div class="loc"><div>${esc(s.name)}<small>${esc(s.id)}</small></div><button data-id="${esc(s.id)}">Entfernen</button></div>`).join('')||'<p class="meta">Noch kein Standort angelegt.</p>';
+}
+function openSet(){$('#key').value=S.apiKey;$('#key').type='password';$('#eye').textContent='Anzeigen';$('#fip').value=S.fronius||'';document.body.classList.add('set')}
+function closeSet(){S.apiKey=$('#key').value.trim();S.fronius=$('#fip').value.trim();save();document.body.classList.remove('set');loadCur();renderTbl()}
+$('#gear').onclick=openSet;$('#done').onclick=closeSet;$('#scrim').onclick=closeSet;
+$('#add').onclick=()=>{
+  const id=$('#ni').value.trim().toUpperCase(),name=$('#nn').value.trim()||id;
+  if(!id)return;
+  if(S.stations.some(s=>s.id===id)){$('#ni').focus();return}
+  S.stations.push({id,name});S.active=S.active||id;save();$('#nn').value=$('#ni').value='';renderSel();
+};
+$('#locs').onclick=e=>{
+  const id=e.target.dataset.id;if(!id)return;
+  if(!confirm('Standort entfernen? Das lokale Archiv dieses Standorts wird ebenfalls gelöscht.'))return;
+  S.stations=S.stations.filter(s=>s.id!==id);if(S.active===id)S.active=S.stations[0]&&S.stations[0].id||null;
+  try{localStorage.removeItem('wx.a.'+id)}catch(x){}save();renderSel();
+};
+$('#sel').onchange=e=>{S.active=e.target.value;save();loadCur();renderTbl()};
+
+/* ---------- Tabs & Start ---------- */
+$('#seg').onclick=e=>{
+  const t=e.target.dataset.t;if(t==null)return;
+  $('#seg').dataset.t=t;document.querySelectorAll('.view').forEach((v,i)=>v.classList.toggle('on',i==t));
+};
+$('#load').onclick=loadArch;
+$('#from').onchange=$('#to').onchange=renderTbl;
+const now=new Date();$('#to').value=iso(now);$('#from').value=iso(new Date(now.getTime()-13*864e5));
+/* ---------- Anzeige-Optionen & Hintergrund ---------- */
+const CUR=['Taupunkt','Gefühlt','Luftfeuchte','Wind','Böen','Luftdruck','Regenrate','Niederschlag heute','UV-Index','Solarstrahlung','Höhe','PV-Leistung','Verbrauch','Netz','Batterie','Ertrag heute','Autarkie','Ertrag Jahr'];
+const BGS=[['auto','Automatisch'],['sonnig','Sonnig'],['daemmerung','Dämmerung'],['nacht','Nacht'],['bewoelkt','Bewölkt'],['regen','Regen']];
+const vis=()=>COLS.map((c,i)=>i).filter(i=>!i||!S.hideCols.includes(COLS[i][0]));
+let autoBg=null;
+function pickAuto(o,m){
+  const h=o&&o.obsTimeLocal?+o.obsTimeLocal.slice(11,13):new Date().getHours();
+  if(m&&m.precipRate>0)return'regen';
+  if(h<6||h>=21)return'nacht';
+  if(h<8||h>=19)return'daemmerung';
+  if(o&&o.solarRadiation!=null&&o.solarRadiation<100&&h>=9&&h<=16)return'bewoelkt';
+  return'sonnig';
+}
+function applyBg(){
+  const c=S.bg||'auto',name=c==='auto'?(autoBg||pickAuto()):c,b=document.body;
+  if(b.dataset.fx!==name){b.dataset.fx=name;const e=$('#bg');e.style.background='var(--g-'+name+')';e.style.animation='none';void e.offsetWidth;e.style.animation=''}
+  document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x.dataset.bg===c));
+}
+function toggles(el,items,key){
+  $(el).className='group';
+  $(el).innerHTML=items.map(l=>`<label class="opt">${esc(l)}<input type="checkbox" class="sw2" data-k="${key}" value="${esc(l)}"${S[key].includes(l)?'':' checked'}></label>`).join('');
+}
+function initOpts(){
+  $('#bgs').innerHTML=BGS.map(([k,l])=>`<button class="chip" data-bg="${k}" style="background:${k==='auto'?'linear-gradient(90deg,#5db1f2 50%,#1b2a5a 50%)':'var(--g-'+k+')'}">${l}</button>`).join('');
+  $('#bgs').onclick=e=>{const b=e.target.closest('.chip');if(!b)return;S.bg=b.dataset.bg;save();applyBg()};
+  $('#eye').onclick=()=>{const k=$('#key'),s=k.type==='password';k.type=s?'text':'password';$('#eye').textContent=s?'Verbergen':'Anzeigen'};
+  $('#tcombo').className='group';
+  $('#tcombo').innerHTML=`<label class="opt">Werte in einem Graphen überlagern<input type="checkbox" class="sw2" id="combo"${S.combo?' checked':''}></label>`;
+  $('#combo').onchange=e=>{S.combo=e.target.checked;save();renderACharts();renderCurCharts()};
+  toggles('#tcur',CUR,'hideCur');toggles('#tcol',COLS.slice(1).map(c=>c[0]),'hideCols');
+  $('#sheet').addEventListener('change',e=>{
+    const k=e.target.dataset.k;if(!k)return;
+    const v=e.target.value,a=S[k].filter(x=>x!==v);if(!e.target.checked)a.push(v);
+    S[k]=a;save();if(k==='hideCols')renderTbl();
+  });
+}
+/* ---------- Diagramme ---------- */
+const CH_DEF={
+ 'Temperatur':{u:'°C',d:1,f:(o,m)=>m.tempAvg},
+ 'Taupunkt':{u:'°C',d:1,f:(o,m)=>m.dewptAvg},
+ 'Luftfeuchte':{u:'%',d:0,f:o=>o.humidityAvg},
+ 'Wind':{u:'km/h',d:1,f:(o,m)=>m.windspeedAvg},
+ 'Böen':{u:'km/h',d:1,f:(o,m)=>m.windgustHigh},
+ 'Luftdruck':{u:'hPa',d:1,f:(o,m)=>m.pressureMax!=null&&m.pressureMin!=null?(m.pressureMax+m.pressureMin)/2:null},
+ 'Regenrate':{u:'mm/h',d:2,f:(o,m)=>m.precipRate},
+ 'Niederschlag heute':{u:'mm',d:1,f:(o,m)=>m.precipTotal},
+ 'UV-Index':{u:'',d:0,f:o=>o.uvHigh},
+ 'Solarstrahlung':{u:'W/m²',d:0,f:o=>o.solarRadiationHigh}
+};
+const CH={};let cn=0,hourly=null;
+function chartHTML(label,def,pts){
+  const id='k'+(cn++),v=pts.filter(p=>p.y!=null);
+  if(v.length<2)return`<div class="tile ch"><small>${label}</small><span style="display:block;margin-top:.75rem">Zu wenige Daten</span></div>`;
+  const W=600,H=170,P=10,N=pts.length;
+  let lo=Math.min(...v.map(p=>p.y)),hi=Math.max(...v.map(p=>p.y));
+  if(hi===lo){hi+=1;lo-=1}
+  const pd=(hi-lo)*.12;lo-=pd;hi+=pd;
+  const X=i=>P+i*(W-2*P)/(N-1),Y=y=>H-P-(y-lo)/(hi-lo)*(H-2*P);
+  const segs=[];let cur=null;
+  pts.forEach((p,i)=>{if(p.y==null){cur=null;return}if(!cur)segs.push(cur=[]);cur.push([X(i),Y(p.y)])});
+  const sp=s=>s.map((q,i)=>i?`C${(s[i-1][0]+q[0])/2},${s[i-1][1]} ${(s[i-1][0]+q[0])/2},${q[1]} ${q[0]},${q[1]}`:`M${q[0]},${q[1]}`).join('');
+  const ok=segs.filter(s=>s.length>1);
+  const line=ok.map(sp).join(''),area=ok.map(s=>sp(s)+`L${s[s.length-1][0]},${H}L${s[0][0]},${H}Z`).join('');
+  CH[id]={pts,lo,hi,W,H,P,def};
+  const f1=x=>n(x,def.d);
+  return`<div class="tile ch"><small>${label}</small><b><span class="cv">${f1(v[v.length-1].y)}</span> <span style="font-size:1rem;font-weight:500;color:var(--sub)">${def.u}</span></b><svg viewBox="0 0 ${W} ${H}" data-id="${id}"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><path d="${area}" fill="url(#${id})"/><path d="${line}" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><g class="cur" opacity="0"><line y1="0" y2="${H}" stroke="#fff" stroke-opacity=".6"/><circle r="5" fill="#fff"/></g><text x="${P}" y="14" fill="#fff" fill-opacity=".7" font-size="12">${f1(hi-pd)}</text><text x="${P}" y="${H-4}" fill="#fff" fill-opacity=".7" font-size="12">${f1(lo+pd)}</text></svg><div class="ax"><span>${pts[0].x}</span><span>${pts[Math.floor((N-1)/2)].x}</span><span>${pts[N-1].x}</span></div></div>`;
+}
+function scrub(e){
+  const s=e.target.closest&&e.target.closest('.ch svg');if(!s)return;
+  const c=CH[s.dataset.id],r=s.getBoundingClientRect();
+  if(c.series)return scrubC(s,c,e,r);
+  const N=c.pts.length;
+  let i=Math.round(((e.clientX-r.left)/r.width*c.W-c.P)/(c.W-2*c.P)*(N-1));i=Math.max(0,Math.min(N-1,i));
+  const p=c.pts[i];if(p.y==null)return;
+  const x=c.P+i*(c.W-2*c.P)/(N-1),y=c.H-c.P-(p.y-c.lo)/(c.hi-c.lo)*(c.H-2*c.P),g=s.querySelector('.cur'),l=g.querySelector('line'),ci=g.querySelector('circle');
+  g.setAttribute('opacity',1);l.setAttribute('x1',x);l.setAttribute('x2',x);ci.setAttribute('cx',x);ci.setAttribute('cy',y);
+  s.closest('.ch').querySelector('.cv').textContent=n(p.y,c.def.d)+' · '+p.x;
+}
+document.addEventListener('pointermove',scrub);document.addEventListener('pointerdown',scrub);
+async function loadHourly(){
+  const s=st();if(!s||!S.charts.length)return;
+  const t=new Date(Date.now()-new Date().getTimezoneOffset()*6e4);
+  try{hourly=await call('history/hourly',s.id,{date:iso(t).replace(/-/g,'')},true)}catch(e){showErr(e.message);hourly=[]}
+  renderCurCharts();
+}
+function renderCurCharts(){
+  const el=$('#chs');if(!el)return;
+  el.innerHTML=hourly?seriesHTML(hourly.map(o=>[o,o.metric||{}]),hourly.map(o=>(o.obsTimeLocal||'').slice(11,16))):'';
+}
+function renderACharts(){
+  $('#cchips').innerHTML=Object.keys(CH_DEF).map(l=>`<button class="chip2${S.charts.includes(l)?' on':''}" data-c="${l}">${l}</button>`).join('');
+  const s=st();if(!s){$('#achs').innerHTML='';return}
+  const c=getA(s.id),ds=days().filter(d=>c[d]);
+  $('#achs').innerHTML=seriesHTML(ds.map(d=>[c[d],c[d].metric||{}]),ds.map(d=>de(d).slice(0,6)));
+}
+const COL=['#ff9f0a','#0a84ff','#30d158','#bf5af2','#ff375f','#64d2ff','#ac8e68','#5e5ce6','#ffd60a','#8e8e93'];
+const spath=s=>s.map((q,i)=>i?`C${(s[i-1][0]+q[0])/2},${s[i-1][1]} ${(s[i-1][0]+q[0])/2},${q[1]} ${q[0]},${q[1]}`:`M${q[0]},${q[1]}`).join('');
+function comboHTML(items,xs){
+  const N=xs.length;if(N<2)return'';
+  const id='k'+(cn++),W=1000,H=240,P=12,keys=Object.keys(CH_DEF);
+  const X=i=>P+i*(W-2*P)/(N-1);
+  const ser=items.map(it=>{const v=it.vals.filter(y=>y!=null);return{...it,lo:v.length?Math.min(...v):0,hi:v.length?Math.max(...v):1,last:v.length?v[v.length-1]:null,color:COL[keys.indexOf(it.l)%COL.length]}});
+  const Y=(s,y)=>H-P-(s.hi===s.lo?.5:(y-s.lo)/(s.hi-s.lo))*(H-2*P);
+  const paths=ser.map(s=>{const segs=[];let c=null;s.vals.forEach((y,i)=>{if(y==null){c=null;return}if(!c)segs.push(c=[]);c.push([X(i),Y(s,y)])});
+    return`<path d="${segs.filter(g=>g.length>1).map(spath).join('')}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`}).join('');
+  CH[id]={series:ser,xs,W,H,P,Y};
+  return`<div class="tile ch cmb"><div class="lg">${ser.map(s=>`<span class="li"><i style="background:${s.color}"></i>${s.l} <em class="lv">${s.last==null?'–':n(s.last,s.def.d)+' '+s.def.u}</em></span>`).join('')}</div><svg viewBox="0 0 ${W} ${H}" data-id="${id}">${paths}<g class="cur" opacity="0"><line y1="0" y2="${H}" stroke="#fff" stroke-opacity=".6"/>${ser.map(s=>`<circle r="5" fill="${s.color}" stroke="#fff"/>`).join('')}</g></svg><div class="ax"><span>${xs[0]}</span><span class="cx"></span><span>${xs[N-1]}</span></div><div class="ax"><span>Jede Kurve ist auf ihren eigenen Wertebereich skaliert.</span></div></div>`;
+}
+function scrubC(s,c,e,r){
+  const N=c.xs.length;let i=Math.round(((e.clientX-r.left)/r.width*c.W-c.P)/(c.W-2*c.P)*(N-1));i=Math.max(0,Math.min(N-1,i));
+  const x=c.P+i*(c.W-2*c.P)/(N-1),g=s.querySelector('.cur'),l=g.querySelector('line'),card=s.closest('.ch'),cs=g.querySelectorAll('circle'),lv=card.querySelectorAll('.lv');
+  g.setAttribute('opacity',1);l.setAttribute('x1',x);l.setAttribute('x2',x);
+  c.series.forEach((sr,k)=>{const y=sr.vals[i];cs[k].setAttribute('opacity',y==null?0:1);if(y!=null){cs[k].setAttribute('cx',x);cs[k].setAttribute('cy',c.Y(sr,y))}lv[k].textContent=y==null?'–':n(y,sr.def.d)+' '+sr.def.u});
+  card.querySelector('.cx').textContent=c.xs[i];
+}
+function seriesHTML(rows,xs){
+  const L=S.charts.filter(l=>CH_DEF[l]);
+  if(S.combo)return L.length?comboHTML(L.map(l=>({l,def:CH_DEF[l],vals:rows.map(r=>CH_DEF[l].f(r[0],r[1]))})),xs):'';
+  return L.map(l=>chartHTML(l,CH_DEF[l],rows.map((r,i)=>({x:xs[i],y:CH_DEF[l].f(r[0],r[1])})))).join('');
+}
+async function loadPV(){
+  const el=$('#pv');if(!el||!S.fronius)return;
+  const h=S.fronius.replace(/^https?:\/\//,'').replace(/\/.*$/,'');
+  const pt=(l,v,u,sub)=>S.hideCur.includes(l)?'':`<div class="tile"><small>${l}</small><b>${v}${u?'<span style="font-size:1rem;font-weight:500;color:var(--sub)"> '+u+'</span>':''}</b><span>${sub||'&nbsp;'}</span></div>`;
+  try{
+    const ac=new AbortController(),to=setTimeout(()=>ac.abort(),8000);
+    const r=await fetch('http://'+h+'/solar_api/v1/GetPowerFlowRealtimeData.fcgi',{signal:ac.signal});clearTimeout(to);
+    if(!r.ok)throw new Error(r.status);
+    const D=(await r.json()).Body.Data,s=D.Site,inv=Object.values(D.Inverters||{}).find(i=>i.SOC!=null);
+    const kw=w=>w==null?null:Math.abs(w)/1000;
+    el.innerHTML='<h3>PV-Anlage</h3><div class="grid">'+
+      pt('PV-Leistung',n(kw(s.P_PV),2),'kW')+
+      pt('Verbrauch',n(kw(s.P_Load),2),'kW')+
+      pt('Netz',n(kw(s.P_Grid),2),'kW',s.P_Grid>0?'Bezug':s.P_Grid<0?'Einspeisung':'')+
+      (s.P_Akku!=null?pt('Batterie',n(kw(s.P_Akku),2),'kW',(s.P_Akku>0?'Entladen':s.P_Akku<0?'Laden':'')+(inv?' · '+n(inv.SOC,0)+' %':'')):'')+
+      pt('Ertrag heute',n(s.E_Day/1000,1),'kWh')+
+      pt('Autarkie',n(s.rel_Autonomy,0),'%','Eigenverbrauch '+n(s.rel_SelfConsumption,0)+' %')+
+      pt('Ertrag Jahr',n(s.E_Year/1000,0),'kWh')+'</div>';
+  }catch(e){el.innerHTML='<div class="msg">PV-Anlage nicht erreichbar. Bitte die Adresse prüfen. Möglicherweise blockiert der Browser die Abfrage.</div>'}
+}
+function togChart(l){
+  if(!CH_DEF[l])return;
+  const a=S.charts.filter(x=>x!==l);if(a.length===S.charts.length)a.push(l);
+  S.charts=a;save();
+  document.querySelectorAll('.tile[data-c],.hero[data-c]').forEach(e=>e.classList.toggle('on',S.charts.includes(e.dataset.c)));
+  renderACharts();
+  if(S.charts.length&&!hourly)loadHourly();else renderCurCharts();
+}
+$('#cur').onclick=e=>{const t=e.target.closest('[data-c]');if(t)togChart(t.dataset.c)};
+$('#cchips').onclick=e=>{const t=e.target.closest('[data-c]');if(t)togChart(t.dataset.c)};
+renderSel();initOpts();applyBg();renderTbl();loadCur();
+if(!S.apiKey||!S.stations.length)openSet();
+setInterval(()=>{if(!document.hidden&&$('#v0').classList.contains('on'))loadCur()},300000);
+</script>
+</body>
+</html>
